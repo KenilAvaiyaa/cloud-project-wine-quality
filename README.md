@@ -72,10 +72,7 @@ aws configure set region us-east-1
 On **master only** — add worker IPs:
 ```bash
 nano /opt/spark/conf/workers
-# add your 3 worker private IPs, one per line:
-# 172.31.36.238
-# 172.31.43.212
-# 172.31.36.36
+# add your 3 worker private IPs
 ```
 
 On **all 4 machines** — set spark-env.sh:
@@ -87,7 +84,7 @@ nano /opt/spark/conf/spark-env.sh
 Add at the bottom:
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-export SPARK_MASTER_HOST=172.31.39.10
+export SPARK_MASTER_HOST=<master private ip>
 export SPARK_LOCAL_IP=$(hostname -I | tr -d ' ')
 ```
 
@@ -104,10 +101,10 @@ chmod 600 ~/.ssh/authorized_keys
 Start the cluster:
 ```bash
 /opt/spark/sbin/start-master.sh
-/opt/spark/sbin/start-worker.sh spark://172.31.39.10:7077
-ssh ubuntu@172.31.36.238 "/opt/spark/sbin/start-worker.sh spark://172.31.39.10:7077"
-ssh ubuntu@172.31.43.212 "/opt/spark/sbin/start-worker.sh spark://172.31.39.10:7077"
-ssh ubuntu@172.31.36.36 "/opt/spark/sbin/start-worker.sh spark://172.31.39.10:7077"
+/opt/spark/sbin/start-worker.sh spark://<master private ip>:7077
+ssh ubuntu@<slave1 private ip> "/opt/spark/sbin/start-worker.sh spark://<master private ip>:7077"
+ssh ubuntu@<slave2 private ip> "/opt/spark/sbin/start-worker.sh spark://<master private ip>:7077"
+ssh ubuntu@<slave3 private ip> "/opt/spark/sbin/start-worker.sh spark://<master private ip>:7077"
 ```
 
 Check it at `http://<MASTER_PUBLIC_IP>:8080` — you should see 3 alive workers.
@@ -151,18 +148,18 @@ On master, copy datasets locally and to all workers:
 aws s3 cp s3://kenil-cs-wine/TrainingDataset.csv /home/ubuntu/
 aws s3 cp s3://kenil-cs-wine/ValidationDataset.csv /home/ubuntu/
 
-scp /home/ubuntu/TrainingDataset.csv ubuntu@172.31.36.238:/home/ubuntu/
-scp /home/ubuntu/TrainingDataset.csv ubuntu@172.31.43.212:/home/ubuntu/
-scp /home/ubuntu/TrainingDataset.csv ubuntu@172.31.36.36:/home/ubuntu/
-scp /home/ubuntu/ValidationDataset.csv ubuntu@172.31.36.238:/home/ubuntu/
-scp /home/ubuntu/ValidationDataset.csv ubuntu@172.31.43.212:/home/ubuntu/
-scp /home/ubuntu/ValidationDataset.csv ubuntu@172.31.36.36:/home/ubuntu/
+scp /home/ubuntu/TrainingDataset.csv ubuntu@<slave1 private ip>:/home/ubuntu/
+scp /home/ubuntu/TrainingDataset.csv ubuntu@<slave2 private ip>:/home/ubuntu/
+scp /home/ubuntu/TrainingDataset.csv ubuntu@<slave3 private ip>:/home/ubuntu/
+scp /home/ubuntu/ValidationDataset.csv ubuntu@<slave1 private ip>:/home/ubuntu/
+scp /home/ubuntu/ValidationDataset.csv ubuntu@<slave2 private ip>:/home/ubuntu/
+scp /home/ubuntu/ValidationDataset.csv ubuntu@<slave3 private ip>:/home/ubuntu/
 ```
 
 Submit the training job:
 ```bash
 /opt/spark/bin/spark-submit \
-  --master spark://172.31.39.10:7077 \
+  --master spark://<master ip address>:7077 \
   --deploy-mode client \
   --num-executors 3 \
   --executor-memory 1g \
@@ -203,26 +200,98 @@ The model saves to `s3://kenil-cs-wine/wine-model` when done.
 
 Expected output:
 ```
-=========================================
-🍷 Wine Quality Prediction F1 Score: 0.5260
-=========================================
+====================================================
+Wine Quality Prediction F1 Score: 0.5259500915750914
+====================================================
 ```
 
 ---
 
-## Running the Prediction App with Docker
+## Docker Implementation
 
-Pull and run the container:
+### Dockerfile
+
+```dockerfile
+FROM eclipse-temurin:11-jre-jammy
+
+RUN apt-get update && apt-get install -y wget && \
+    wget -q https://archive.apache.org/dist/spark/spark-3.3.2/spark-3.3.2-bin-hadoop3.tgz && \
+    tar -xzf spark-3.3.2-bin-hadoop3.tgz && \
+    mv spark-3.3.2-bin-hadoop3 /opt/spark && \
+    rm spark-3.3.2-bin-hadoop3.tgz
+
+COPY wine-prediction-1.0-SNAPSHOT.jar /app/
+COPY hadoop-aws-3.3.2.jar /app/
+COPY aws-java-sdk-bundle-1.11.1026.jar /app/
+COPY ValidationDataset.csv /app/
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$PATH:$SPARK_HOME/bin
+
+ENTRYPOINT ["/opt/spark/bin/spark-submit", \
+    "--master", "local[*]", \
+    "--jars", "/app/hadoop-aws-3.3.2.jar,/app/aws-java-sdk-bundle-1.11.1026.jar", \
+    "--class", "com.wine.WinePrediction", \
+    "/app/wine-prediction-1.0-SNAPSHOT.jar", \
+    "/app/ValidationDataset.csv"]
+```
+
+### Install Docker on EC2
+
+```bash
+sudo apt-get update && sudo apt-get install -y docker.io
+sudo systemctl start docker
+sudo usermod -aG docker ubuntu
+newgrp docker
+```
+
+### Build the Docker Image (on EC2 master)
+
+Make sure all required files are in `/home/ubuntu/`:
+```bash
+ls /home/ubuntu/wine-prediction-1.0-SNAPSHOT.jar
+ls /home/ubuntu/hadoop-aws-3.3.2.jar
+ls /home/ubuntu/aws-java-sdk-bundle-1.11.1026.jar
+ls /home/ubuntu/ValidationDataset.csv
+ls /home/ubuntu/Dockerfile
+```
+
+Build the image:
+```bash
+cd /home/ubuntu
+docker build -t wine-prediction .
+```
+
+### Test the Docker Container Locally
+
+```bash
+docker run --rm wine-prediction
+```
+
+### Push to Docker Hub
+
+Login to Docker Hub:
+```bash
+docker login
+```
+
+Tag the image:
+```bash
+docker tag wine-prediction kenil1701/wine-prediction:latest
+```
+
+Push to Docker Hub:
+```bash
+docker push kenil1701/wine-prediction:latest
+```
+
+### Pull and Run from Docker Hub (on any machine)
+
 ```bash
 docker pull kenil1701/wine-prediction:latest
 
-docker run --rm \
-  -e AWS_ACCESS_KEY_ID=<your_key> \
-  -e AWS_SECRET_ACCESS_KEY=<your_secret> \
-  -e AWS_SESSION_TOKEN=<your_token> \
-  kenil1701/wine-prediction:latest
+docker run --rm kenil1701/wine-prediction:latest
 ```
-
 ---
 
 ## Model
