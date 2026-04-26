@@ -1,4 +1,4 @@
-# CS643 Programming Assignment 2 — Wine Quality Prediction on AWS
+# Wine Quality Prediction on AWS
 
 Distributed ML pipeline built on AWS EC2. Trains a wine quality classifier across 4 nodes using Apache Spark MLlib, saves the model to S3, and runs predictions on a single machine. The prediction app is also packaged as a Docker container.
 
@@ -235,5 +235,5 @@ Validation F1 score: **0.5259500915750914**
 
 ## Links
 
-- **GitHub:** https://github.com/kenilavaiyaa/cs643-wine-quality-ml
+- **GitHub:** https://github.com/KenilAvaiyaa/cloud-project-wine-quality/tree/main
 - **Docker Hub:** https://hub.docker.com/repository/docker/kenil1701/wine-prediction/general
