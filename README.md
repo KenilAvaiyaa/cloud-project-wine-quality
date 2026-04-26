@@ -2,38 +2,32 @@
 
 Distributed ML pipeline built on AWS EC2. Trains a wine quality classifier across 4 nodes using Apache Spark MLlib, saves the model to S3, and runs predictions on a single machine. The prediction app is also packaged as a Docker container.
 
-**Docker Hub:** `kenil1701/wine-prediction:latest`
+**Docker Hub:** `https://hub.docker.com/repository/docker/kenil1701/wine-prediction/general`
 
 ---
 
 ## What's in this repo
 
 ```
-cs643-wine-quality-ml/
+wine-project/
 ├── src/                        # Training app (WineTraining.java)
 ├── wine-prediction/            # Prediction app (WinePrediction.java)
 │   └── src/
 ├── pom.xml                     # Training app Maven config
-├── wine-prediction/pom.xml     # Prediction app Maven config
-└── img/                        # Screenshots
+└── wine-prediction/pom.xml     # Prediction app Maven config
 ```
 
 ---
 
 ## How it works
 
-Training runs on a 4-node Spark cluster (1 master + 3 workers) on EC2. The app reads `TrainingDataset.csv` from S3, trains a Random Forest classifier, and saves the model back to S3. Prediction loads that model and scores any wine CSV, printing the F1 score.
+Training runs on a four-node Spark cluster (one master node and three worker nodes) on Amazon EC2. The application reads the `TrainingDataset.csv` file from Amazon S3, trains a Random Forest classifier, and saves the trained model back to the same S3 location. Subsequently, the prediction module loads the saved model and performs predictions on any wine CSV file. It then prints the F1 score for each prediction.
 
 ---
 
 ## Setup
 
 ### 1. AWS — Launch 4 EC2 Instances
-
-- AMI: Ubuntu 22.04 LTS
-- Type: t2.medium
-- Open ports: 22, 7077, 8080, 4040 inbound; all traffic outbound
-- Note the private IPs of all 4 instances
 
 Upload your datasets to S3:
 ```bash
@@ -233,9 +227,9 @@ docker run --rm \
 
 ## Model
 
-Random Forest Classifier via Spark MLlib. 100 trees, trained on 11 chemical features (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free/total sulfur dioxide, density, pH, sulphates, alcohol). Predicts wine quality on a scale of 1–10.
+Random Forest Classifier implemented using Spark MLlib. The model comprises 100 trees and is trained on 11 chemical features, including fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free/total sulfur dioxide, density, pH, sulfates, and alcohol. The classifier predicts wine quality on a scale of 1–10.
 
-Validation F1 score: **0.5260**
+Validation F1 score: **0.5259500915750914**
 
 ---
 
