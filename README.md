@@ -236,4 +236,4 @@ Validation F1 score: **0.5259500915750914**
 ## Links
 
 - **GitHub:** https://github.com/kenilavaiyaa/cs643-wine-quality-ml
-- **Docker Hub:** https://hub.docker.com/r/kenil1701/wine-prediction
+- **Docker Hub:** https://hub.docker.com/repository/docker/kenil1701/wine-prediction/general
